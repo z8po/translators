@@ -98,6 +98,130 @@ function author(author, type, useComma) {
 }
 
 
+/**
+ * @name getCreatorType
+ * @param {number} responsabilityBlock code of the UNIMARC responsability block in the range 7X0-7X2 for both persons and organizations
+ * @param {string} relatorSubfield extracted optionnal relator code in the sub-field $4 of the bibliographical responsability block 7XX
+ * @description  Map MARC responsability block relator code to the to Zotero creator types. Mapping done with following documentation:
+ * Relator codes $4 subfield values: https://www.ifla.org/wp-content/uploads/2019/05/assets/uca/unimarc_updates/BIBLIOGRAPHIC/u_b_appb_update2020_online_final.pdf .
+ * Zotero creator types: see https://github.com/zotero/zotero-schema/blob/master/schema.json which is a json-schema describing structure for validating inter alia possible author type values.
+ * more info here https://www.zotero.org/support/kb/item_types_and_fields
+ * Relator subfield is optionnal and it fallbacks to creator type "author" for 7X0-7X1 and "contributor" for 7X2
+ * @returns {string} creatorType name used in zotero schema
+ */
+
+function getCreatorType(responsabilityBlock, relatorSubfield) {
+	const authorCodes = [700, 701, 710, 711]
+	// fallback to default creator type "author" if responsability block is 7X0-7X1 and "contributor" for 7X2
+	const defaultCreatorType = authorCodes.includes(responsabilityBlock) ? 'author' : 'contributor'
+
+	switch (relatorSubfield) {
+		// if no relator subfield just give global creatorType author or contributor
+		case undefined:
+			return defaultCreatorType
+		case "018": // animator
+		case "040": // artist
+		case "130": // book designer
+		case "740": // type designer
+		case "750": // typographer
+		case "350": // engraver
+		case "360": // etcher
+		case "430": // illuminator
+		case "440": // illustrator
+		case "510": // lithographer
+		case "530": // metal engraver
+		case "600": // photographer
+		case "705": // sculptor
+		case "760": // wood engraver
+			return "artist"
+		case "XXX": // The attorney or agent representing an inventor when filing a patent.
+			return "attorneyAgent"
+		case "062": // Author, attributed
+		case "070": // author himself
+		case "305": // candidate, for thesis
+		case "330": // pretended author
+			return "author"
+		case "XXX":
+			return "bookAuthor"
+		case "180":
+			return "cartographer"
+		case "XXX":
+			return "castMember"
+		case "020": // annotator
+		case "210": // commenter in audiovisual records
+		case "212": // commenter for text
+			return "commenter"
+		case "030": // arranger
+		case "230": // composer
+			return "composer"
+		case "072": // citation author
+		case "075": // postfacer or colophon
+		case "080": // prefacer
+		case "205": // contributor
+		case "570": // other undefined
+			return "contributor"
+		case "255": // adviser
+		case "695": // scientific advisor
+		case "727": // thesis advisor
+			return "counsel"
+		case "300": // author's name for film maker
+			return "director"
+		case "010": // adapter
+		case "220": // compiler
+		case "340": // editor as director of publication, selected text by
+			return "editor"
+		case "XXX":
+			return "guest"
+		case "460":
+			return "interviewee"
+		case "470":
+			return "interviewer"
+		case "245":
+			return "inventor"
+		case "005": // actor
+		case "250": // conductor
+		case "275": // danser
+		case "590": // performer
+		case "755": // vocalist
+			return "performer"
+		case "XXX": //  The host of a podcast. The author for Podcast items.
+			return "podcaster"
+		case "605":
+			return "presenter"
+		case "630":
+			return "producer"
+		case "635":
+			return "programmer"
+		case "660":
+			return "recipient"
+		case "XXX": // The name of the author whose work is being reviewed.
+			return "reviewedAuthor"
+		case "090": // author of dialog
+		case "690": // scenarist
+			return "scriptwriter"
+		case "XXX":
+			return "seriesEditor"
+		case "400": // funder
+		case "723": // sponsor
+			return "sponsor" // Zotero has both sponsor and cosponsor but compress all in sponsor
+		case "730":
+			return "translator"
+		case "480": // librettist
+		case "520": // lyricist
+			return "wordsBy"
+		// Ignore (no matching Zotero creatorType):
+		case "050": // Assignee, agent to which a license for printing or publishing has been transferred
+		case "060": // Associated name, unproven former owner (390)
+		case "320": // donor
+		case "610": // printer
+		case "650": // publisher
+		// Default if not found in current switch
+		default:
+			return undefined
+	}
+}
+
+
 function glueTogether(part1, part2, delimiter) {
 	if (!part1 && !part2) {
 		return null;
@@ -399,8 +523,11 @@ record.prototype.translate = function (item) {
 				else {
 					authorText = aut.a;
 				}
-				// prevent this from crashing with empty author tags
-				if (authorText) item.creators.push(Zotero.Utilities.cleanAuthor(authorText, "author", true));
+				const creatorType = getCreatorType(i, aut?.['4'])
+				// prevent this from crashing with empty author tags or not existing zotero subfield role mapping
+				if (authorText && creatorType) {
+					item.creators.push(Zotero.Utilities.cleanAuthor(authorText, creatorType, true));
+				}
 			}
 		}
 
@@ -409,7 +536,10 @@ record.prototype.translate = function (item) {
 			let authorTab = this.getFieldSubfields(i);
 			for (let j in authorTab) {
 				if (authorTab[j].a) {
-					item.creators.push({ lastName: authorTab[j].a, creatorType: "contributor", fieldMode: 1 });
+					const creatorType = getCreatorType(i,  authorTab[j]?.['4'])
+					if (creatorType) {
+						item.creators.push({ lastName: authorTab[j].a, creatorType: creatorType, fieldMode: 1 });
+					}
 				}
 			}
 		}
