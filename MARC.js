@@ -526,8 +526,13 @@ record.prototype.translate = function (item) {
 				const creatorType = getCreatorType(i, aut?.['4'])
 				// prevent this from crashing with empty author tags or not existing zotero subfield role mapping
 				if (authorText && creatorType) {
-					item.creators.push(Zotero.Utilities.cleanAuthor(authorText, creatorType, true));
+					let creator = Zotero.Utilities.cleanAuthor(authorText, creatorType, true)
+					if (aut.o) {
+						creator.ISNI = aut.o
+					}
+					item.creators.push(creator);
 				}
+				
 			}
 		}
 
@@ -538,7 +543,11 @@ record.prototype.translate = function (item) {
 				if (authorTab[j].a) {
 					const creatorType = getCreatorType(i,  authorTab[j]?.['4'])
 					if (creatorType) {
-						item.creators.push({ lastName: authorTab[j].a, creatorType: creatorType, fieldMode: 1 });
+						let creator = { lastName: authorTab[j].a, creatorType: creatorType, fieldMode: 1 }
+						if (authorTab[j].o) {
+							creator.ISNI = aut.o
+						}
+						item.creators.push(creator);
 					}
 				}
 			}

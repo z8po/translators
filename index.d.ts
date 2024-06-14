@@ -228,6 +228,7 @@ declare namespace Zotero {
 		firstName: string?;
 		creatorType: T;
 		fieldMode: 1?;
+		ISNI:string?;
 	}
 
 	/* *** BEGIN GENERATED TYPES *** */
