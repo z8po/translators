@@ -1,14 +1,14 @@
 {
 	"translatorID": "a6ee60df-1ddc-4aae-bb25-45e0537be973",
 	"label": "MARC",
-	"creator": "Simon Kornblith, Sylvain Machefert",
+	"creator": "Simon Kornblith, Sylvain Machefert, @z8po",
 	"target": "marc",
 	"minVersion": "2.1.9",
 	"maxVersion": "",
 	"priority": 100,
 	"inRepository": true,
 	"translatorType": 1,
-	"lastUpdated": "2024-03-15 21:14:09"
+	"lastUpdated": "2024-06-22 21:14:09"
 }
 
 /*
@@ -91,10 +91,14 @@ function pullISBN(text) {
 	return "";
 }
 
-
-// regular author extraction
-function author(author, type, useComma) {
-	return Zotero.Utilities.cleanAuthor(author, type, useComma);
+// DOI extraction
+function pullDOI(text) {
+	var pullRe = /^10.\d{4,9}\/[-._;()/:A-Z0-9]+$/;
+	var m = pullRe.exec(text);
+	if (m) {
+		return m[0];
+	}
+	return "";
 }
 
 
@@ -116,6 +120,509 @@ function glueTogether(part1, part2, delimiter) {
 		return part1 + ' ' + part2;
 	}
 	return part1 + delimiter + part2;
+}
+
+/*
+  Extracted from zotero schema.json, i removed all itemtypes which cannot be determined from unimarc field analysis.
+  GlobalTypes property is all the roles common to all itemTypes, just to avoid redundancy.
+  Notabene, globaltype is searched only if an itemType has the same creatortype. For exemple, a film with a "Director" and no "author" filed
+  will not try to find a relator in globalTypes author.
+  But "Book" and "newsPaper" will search in globaltype schema author because they have a creatorType author themselves
+*/
+
+const schemaZoteroRelator = {
+	globalTypes: [
+	  {
+		creatorType: "author",
+		primary: true,
+		relator: [
+		  "062", // Author, attributed
+		  "070", // author
+		  "330", // pretended author dubious or incorrect author
+		  "257", // continuator
+		  "380", // counterfait
+		  "560", // instigator
+		],
+	  },
+	  {
+		creatorType: "contributor",
+		relator: [
+		  "205", // contributor itsefl
+		  "710", // secretary
+		],
+	  },
+	  {
+		creatorType: "translator",
+		relator: [
+		  "730", // translator
+		  "735", // transliterator
+		],
+	  },
+	  {
+		creatorType: "editor",
+		relator: [
+		  "010", // adapter
+		  "220", // compiler
+		  "340", // editor as director of publication, selected text by
+		  "190", // censor (removing is editing too)
+		],
+	  },
+	  {
+		creatorType: "seriesEditor",
+		relator: [
+		  "651", // publishing director
+		  "475", // edited by collectivity
+		],
+	  },
+	  {
+		creatorType: "reviewedAuthor",
+		relator: [
+		  "072", // Author in quotations or text extracts
+		],
+	  },
+	],
+	itemTypes: [
+	  {
+		itemType: "artwork",
+		creatorTypes: [
+		  {
+			creatorType: "artist",
+			primary: true,
+			relator: [
+			  "040", //artist
+			  "410", // graphic technician, colorist, computer design
+			  "430", // illuminator
+			  "440", // illustrator
+			  "510", // lithographer
+			  "600", // photographer
+			  "740", // type designer
+			  "750", // typographer
+			  // 3d
+			  "350", // engraver
+			  "360", // etcher - hardwater
+			  "530", // metal engraver
+			  "705", // sculptor
+			  "760", // wood engraver
+			],
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		],
+	  },
+	  {
+		itemType: "audioRecording",
+		creatorTypes: [
+		  {
+			creatorType: "performer",
+			primary: true,
+			relator: [
+			  "005", // actor
+			  "040", // artist
+			  "207", // comedian or humorist
+			  "303", // disk jockey
+			  "545", // musician
+			  "550", // narrator speaker
+			  "590", // performer
+			  "605", // Présentateur
+			  "721", // singer
+			  "755", // vocalist
+			  "470", // interviewer
+			  "605", // presenter
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "195", // choral director
+			  "560", // Originator
+			  "030", // arranger
+			  "665", // producer (in sound industry it is a supervisor, an editor, not just a publisher)
+			  "670", // sound engi
+			  "672", // remixer
+			  "460", // interviewee
+			],
+		  },
+		  {
+			creatorType: "composer",
+			relator: [
+			  "230", // composer
+			  "233", // composer of adapted works
+			  "236", // composer of main musical work
+			  "770", // Writer of accompanying material
+			],
+		  },
+		  {
+			creatorType: "wordsBy",
+			relator: [
+			  "210", // commenter in audiovisual records
+			  "212", // auteur du commentaire
+			  "480", // librettist
+			  "520", // lyricist
+			],
+		  },
+		],
+	  },
+	  {
+		itemType: "book",
+		creatorTypes: [
+		  // remember than book author will inherit from global roles
+		  {
+			creatorType: "author",
+			primary: true,
+			relator: [
+			  "355", // Epitomator
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "075", // postfacer or colophon
+			  "080", // prefacer
+			  "205", // contributor
+			  "212", // commenter for text
+			  "290", // dedicator who write the dedication
+			  "407", // glossator
+			],
+		  },
+		  {
+			creatorType: "editor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "seriesEditor",
+		  },
+		],
+	  },
+	  {
+		itemType: "manuscript",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+			relator: [
+			  "450", // letter sender
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "020", // manuscript annotator
+			  "270", // corrector manuscript
+			  "700", // copist
+			],
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		],
+	  },
+	  {
+		itemType: "computerProgram",
+		creatorTypes: [
+		  {
+			creatorType: "programmer",
+			primary: true,
+			relator: [
+			  "635", // programmer
+			  "405", // game designer
+			],
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		],
+	  },
+	  {
+		itemType: "film",
+		creatorTypes: [
+		  {
+			creatorType: "director",
+			primary: true,
+			relator: [
+			  "300", // director, author's name for film maker
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "005", // actor
+			  "018", // animation
+			  "030", // arranger
+			  "195", // choral chief
+			  "200", // choregrapher
+			  "202", // circus artist
+			  "207", // humorist
+			  "210", // commenter
+			  "230", // composer
+			  "233", // composer of adapted
+			  "236", // composer of main
+			  "275", // danser
+			  "370", // film editor as post-prod
+			  "520", // lyrics
+			  "535", // mime
+			  "545", // musician
+			  "550", // narator
+			  "590", // interpretor
+			  "605", // presenter
+			  "630", // artistic director
+			  "633", // member of prod team, tech team
+			  "655", // puppeteer
+			  "670", // sound engi
+			  "695", // scientific counseler
+			  "721", // singer
+			  "726", // stunt
+			  "470", // interviewer
+			  "460", // interviewee
+			  "605", // presenter
+			],
+		  },
+		  {
+			creatorType: "scriptwriter",
+			relator: [
+			  "090", // author of dialog
+			  "690", // scenarist
+			],
+		  },
+		  {
+			creatorType: "producer",
+			relator: [
+			  "630", // producer
+			],
+		  },
+		],
+	  },
+	  {
+		itemType: "magazineArticle",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "reviewedAuthor",
+		  },
+		],
+	  },
+	  {
+		itemType: "journalArticle",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		  {
+			creatorType: "editor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "reviewedAuthor",
+		  },
+		],
+	  },
+	  {
+		itemType: "map",
+		creatorTypes: [
+		  {
+			creatorType: "cartographer",
+			primary: true,
+			relator: [
+			  "180", // cartographer
+			  "040", // artist
+			  "440", // Illustrator
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "410", // graphic technician, colorist, computer design
+			],
+		  },
+		  {
+			creatorType: "seriesEditor",
+		  },
+		],
+	  },
+	  {
+		itemType: "newspaperArticle",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "reviewedAuthor",
+		  },
+		],
+	  },
+	  {
+		itemType: "patent",
+		creatorTypes: [
+		  {
+			creatorType: "inventor",
+			primary: true,
+			relator: [
+			  "245", // conceptor inventor, from the original idea of
+			  "582", // Patent applicant is not the
+			  "584", // Patent Inventor
+			],
+		  },
+		  {
+			creatorType: "attorneyAgent",
+			relator: [
+			  "552", // notary
+			  "540", // monitor An agent that supervises the compliance with the contract and is responsible for the report and controls its distribution. Sometimes referred to as the grantee, or controlling agency.
+			],
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		],
+	  },
+	  {
+		itemType: "preprint",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+			relator: [
+			  "305", // candidate, for thesis
+			  "677", // Research team member
+			  "673", // Research team head
+			  "595", // Performer of research
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "003", // academic
+			  "727", // thesis advisor
+			  "695", // scientific advisor
+			],
+		  },
+		  {
+			creatorType: "editor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "reviewedAuthor",
+		  },
+		],
+	  },
+	  {
+		itemType: "report",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+		  },
+		  {
+			creatorType: "contributor",
+		  },
+		  {
+			creatorType: "translator",
+		  },
+		  {
+			creatorType: "seriesEditor",
+		  },
+		],
+	  },
+
+	  {
+		itemType: "thesis",
+		creatorTypes: [
+		  {
+			creatorType: "author",
+			primary: true,
+			relator: [
+			  "305", // candidate, for thesis
+			  "677", // Research team member
+			  "673", // Research team head
+			  "595", // Performer of research
+			],
+		  },
+		  {
+			creatorType: "contributor",
+			relator: [
+			  "003", // academic
+			  "727", // thesis advisor
+			  "695", // scientific advisor
+			],
+		  },
+		],
+	  },
+	  {
+		itemType: "document",
+		creatorTypes: [
+			{
+				"creatorType": "author",
+				"primary": true
+			},
+			{
+				"creatorType": "contributor"
+			},
+			{
+				"creatorType": "editor"
+			},
+			{
+				"creatorType": "translator"
+			},
+			{
+				"creatorType": "reviewedAuthor"
+			}
+		]
+	  },
+	],
+  }
+
+/**
+ * @name getCreatorType
+ * @param {object} item item used with item.Type "film" "audioRecording" "map" "artwork" "manuscript" "book" "thesis"  "bookSection" "journalArticle" "conferencePaper" "computerProgram" ...
+ * @param {string} relator extracted optionnal relator code in the sub-field $4 of the bibliographical responsability block 7XX
+ * @description  Map MARC responsability block relator code to the to Zotero creator types of an item type. Mapping done with following documentation:
+ * Relator codes $4 subfield values: https://www.ifla.org/wp-content/uploads/2019/05/assets/uca/unimarc_updates/BIBLIOGRAPHIC/u_b_appb_update2020_online_final.pdf .
+ * Relator codes $4 subfield values, french version from A.B.E.S.: https://documentation.abes.fr/sudoc/formats/unmb/DonneesCodees/CodesFonctions.htm#NUM212
+ * Zotero creator types: see https://github.com/zotero/zotero-schema/blob/master/schema.json which is a json-schema describing structure for validating inter alia possible author type values.
+ * Mapping zotero creator type to item type: see https://www.zotero.org/support/kb/item_types_and_fields
+ * Relator subfield is optionnal and it fallbacks to creator type "author" for 7X0-7X1 and "contributor" for 7X2
+ * @returns {object} creatorType name used in zotero schema
+ */
+
+function getCreatorType(item, relator) {
+
+	// fallback to default creator type "author" if responsability block is 7X0-7X1 and "contributor" for 7X2
+	// set as default the primary zotero creator type for 7X1 and contributor for 7X2 which is common for all items type.
+
+	const creatorsForType = Zotero.Utilities.getCreatorsForType(item.itemType)
+
+	return [
+		... schemaZoteroRelator.itemTypes.find(({itemType}) => itemType === item.itemType)?.creatorTypes,
+		... schemaZoteroRelator.globalTypes
+	].find(type =>
+		// search for relator in creator type in globaltypes
+		creatorsForType?.includes(type.creatorType) && type?.relator?.includes(relator)
+	)?.creatorType
 }
 
 /*
@@ -344,75 +851,275 @@ record.prototype._associateTags = function (item, fieldNo, part) {
 
 // this function loads a MARC record into our database
 record.prototype.translate = function (item) {
-	// get item type
+	// get item type based on header
+	// for detail https://www.transition-bibliographique.fr/wp-content/uploads/2018/07/Bsection5-Label_notice-6-2010.pdf
 	if (this.leader) {
 		var marcType = this.leader.substr(6, 1);
-		if (marcType == "g") {
+		if (marcType === "a") {
+			item.itemType = "book";
+		// Film isnt really perfect since all video media arent a film,
+		// Zotero has "tv broadcast" and "video recording"
+		// but "video recording" isnt a vanilla item, it is a fallback for everything which isnt "tv" or "film"
+		// whereas there isnt "music" but "audio recording" as common denominator for audio content, including artistic content
+		} else if (marcType === "g") {
 			item.itemType = "film";
-		}
-		else if (marcType == "j" || marcType == "i") {
+		} else if (marcType === "j" || marcType === "i") {
 			item.itemType = "audioRecording";
-		}
-		else if (marcType == "e" || marcType == "f") {
+		} else if (marcType === "e" || marcType === "f") {
 			item.itemType = "map";
-		}
-		else if (marcType == "k") {
+		} else if (marcType === "k" || marcType === "r") {
+			// 2d draw or 3d sculpt artwork
 			item.itemType = "artwork";
-		}
-		else if (marcType == "t" || marcType == "b") {
+		} else if (marcType === "t" || marcType === "b") {
 			// 20091210: in unimarc, the code for manuscript is b, unused in marc21.
 			item.itemType = "manuscript";
-		}
-		else {
-			item.itemType = "book";
+		} else if (marcType === "l") {
+			item.itemType = "computerProgram";
+		// multimedia is a combination of all other types, need a disambiguation,
+		// film or computer program could be the more descriptive,
+		// we could choose "film" because there is a lot of relator <-> creatortype possible bindings
+		// We could use "document" since it is the zotero vanilla fallback
+		} else if (marcType === "m") {
+			item.itemType = "film";
 		}
 	}
-	else {
-		item.itemType = "book";
-	}
+	/*
+	REVIEW
+	 if itemType not found the legacy fallback in previous code was "film", not sure it is the cleviest choice.
+	 I do an asumption, it comes from wrongly setted records without is mostly film but need to be acknowledged in review.
+	 I would personnaly think in UNIMARC the hightest probability would be "book" for successfull blind detection.
+	 Another point of view, "document" is the basic vanilla itemType in zotero dev documentation so could be a better fallback
+	*/
+
+	item.itemType ||= "document"
 
 	// Starting from there, we try to distinguish between unimarc and other marc flavours.
 	// In unimarc, the title is in the 200 field and this field isn't used in marc-21 (at least)
 	// In marc-21, the title is in the 245 field and this field isn't used in unimarc
 	// So if we have a 200 and no 245, we can think we are with an unimarc record.
 	// Otherwise, we use the original association.
+
 	if ((this.getFieldSubfields("200")[0]) && (!(this.getFieldSubfields("245")[0]))) {
-		// If we've got a 328 field, we're on a thesis
-		if (this.getFieldSubfields("328")[0]) {
+
+		// We try to distinguish itemtype based on disposable fields
+		// https://www.transition-bibliographique.fr/unimarc/manuel-unimarc-format-bibliographique/
+		// because to do a proper correlation between:
+		//  - in the first hand zotero roles described in his itemType schemas,
+		//  - in the other hand unimarc relators,
+		// the better is to target as precisely as possible zotero itemType.
+		// Here we used all field which can give clues and help
+
+		// Report detection
+		// 013 – ISMN (International Standard Music Number), for **printed** music, lyrics, Musical score
+		if (this.getFieldSubfields("013")[0]) {
+			item.itemType = "report"
+		}
+
+		// magazineArticle newspaperArticle detection
+		// has 011 - ISSN and no 010 - ISBN
+		// it is a published press who need disambiguation betweeen "newspapper" and "magazine"
+
+		/*
+		REVIEW:
+		Not sure if all magazine have a subfield 014 periodical well setted, so detection could fail.
+		And newspapper could have one 014 too (for exemple french daily national newspapper LeMonde has an id in the mainpage between date and price).
+		But i dont know what is the behavior when registering both type of press as UNIMARC records. Need to be tested / acknowledged.
+		From zotero point of view alone, magazine has a periodical id and newspaper doesnt.
+		*/
+		if (this.getFieldSubfields("011")[0] &&
+		!this.getFieldSubfields("010")[0]
+		) {
+			// has 014 – periodical ID
+			if (this.getFieldSubfields("014")[0]) {
+				item.itemType = "magazineArticle"
+			} else {
+				item.itemType = "newspaperArticle"
+			}
+		}
+
+		// book detection (fallback)
+		// 017 – legacy SBN (id which existed before ISBN)
+		if (this.getFieldSubfields("017")[0]) {
+			item.itemType = "book"
+		}
+
+		/*
+		 REVIEW attentively the following block, not error proof or maybe improvable.
+		 DOI detection: There is subfields usable described in associated IFLA compliance to find DOI
+		 033 – Identifiant pérenne dans d’autres systèmes
+		 035 – Identifiant de la notice dans un autre système
+		 856 - remote ressource
+		 In 033 and 035 by pure logic, uses wouldnt put DOI here but it is still possible.
+		 856$u is possible for remote url, but could not be a DOI just the directly resolved url
+		 Notabene DOI is present field in zotero for item : "journal article", "preprint", "conferencePaper", "dataset".
+
+		 We do detection based on Zotero rules:
+		 -> "conferencePaper" can have an ISBN but no ISSN
+		 -> "journalArticle" can have an ISSN but no ISBN
+		 -> "preprint" has not ISSN and no ISBN
+
+		 this part make me doubt, maybe it would be better to put everything with a DOI as a fallback in "journalArticle"
+		*/
+
+		const DOI = [
+			['033', 'a'],
+			['035', 'a'],
+			['856', 'u']
+		].map(([field, subfield]) => [field, subfield, this.getFieldSubfields(field)])
+		.find(([field, subfield, items]) =>
+			// try to find on the fly the first doi recorded in one of the field
+			items.find(item =>
+				pullDOI(item[subfield])
+			)
+		)
+		// detection and disctinction between "conference paper", "journal article", "preprint"
+		if (DOI) {
+			this._associateDBField(item, DOI[0], DOI[1], "DOI", pullDOI);
+			// if has a ISBN according to zotero should be a "conference Paper"
+			if (this.getFieldSubfields("010")[0] ) {
+				item.itemType = "conferencePaper"
+			// if has a ISSN according to zotero should be a "journal Article"
+			} else if (!this.getFieldSubfields("011")[0]) {
+				item.itemType = "journalArticle"
+			// no issn, no isbn it is preprint
+			} else {
+				item.itemType = "preprint"
+			}
+		}
+
+		// Report detection
+		// 015 – ISRN (International Standard Technical Report Number)
+		// 022 - official, country based
+		if (this.getFieldSubfields("015")[0]) {
+			item.itemType = "report"
+		}
+
+		// audio recording detection
+		// 016 – ISRC (International Standard Recording Code)
+		// put it after 013 ISMN to avoid bad typing "audio recording" in "report" if they have both id,
+		if (this.getFieldSubfields("016")[0]
+		) {
+			// could be both video and audio it is just a fallback if no marktype presetted
+			item.itemType ||= "audioRecording"
+		}
+
+		// Thesis detection
+
+		/*
+		REVIEW
+		 imho legacy setted 328 is maybe not the best field because it includes "or another academic work"
+		 whereas 029 is a id of thesis itself, maybe best approach here
+		 but zotero doc indicate than "thesis" could be simply student work for applying a degree, published or **unpublished**
+		 so 029 could be optionnal approach too
+		*/
+
+		// thesis note or thesis number
+		if (this.getFieldSubfields("328")[0] || this.getFieldSubfields("029")[0]) {
 			item.itemType = "thesis";
 		}
+
+		/*
+			TODO FEATURE
+
+			for zotero itemType "bill", "patent", "case", "standard", "statute"
+			we could do the same as it was done with DOI detection in UNIMARC "other ID field"
+			by finding corresponding id regexp from wikidata ids property page.
+			for exemple a sparql query to find all regexp of all id which is subclass of "juridic" ID
+			This could be error proof if some ids have a real specific pattern.
+			This reasoning could be applied for all itemType which is specific enougth to have a id reflecting a speciality.
+
+			Take a look to REVIEW line :1058 about administrative content, some
+		*/
 
 		// Extract ISBNs
 		this._associateDBField(item, "010", "a", "ISBN", pullISBN);
 		// Extract ISSNs
 		this._associateDBField(item, "011", "a", "ISSN", pullISBN);
 
-		// Extract creators (700, 701 & 702)
-		for (let i = 700; i < 703; i++) {
-			let authorTab = this.getFieldSubfields(i);
-			for (let j in authorTab) {
-				var aut = authorTab[j];
-				var authorText = "";
-				if ((aut.b) && (aut.a)) {
-					authorText = aut.a.replace(/,\s*$/, '') + ", " + aut.b;
-				}
-				else {
-					authorText = aut.a;
-				}
-				// prevent this from crashing with empty author tags
-				if (authorText) item.creators.push(Zotero.Utilities.cleanAuthor(authorText, "author", true));
-			}
-		}
+		const fields = [
+			700, // main responsability
+			701, // another main responsability
+			702, // secondary responsability
+			710, // main collective responsability
+			711, // another main collective responsability
+			712  // secondary collective responsability
+		].map(authorCode => {
+			return this.getFieldSubfields(authorCode)
+				/*
+				REVIEW not sure filtering authors without relator subfield is the best thing to do since relator subfield is optionnal record.
+				-> Maybe using a fallback author 7X1 // contributor 7X2 if no $4 found AND the record is unique is a better approach than skipping an authorfield,
+				since lot of zotero translators are inherited from MARC.js and all endpoint may not have a homogeneous disciplinarity on records curation
+				*/
+				.filter(subfield => subfield['4'])
+		}).flat()
 
-		// Extract corporate creators (710, 711 & 712)
-		for (let i = 710; i < 713; i++) {
-			let authorTab = this.getFieldSubfields(i);
-			for (let j in authorTab) {
-				if (authorTab[j].a) {
-					item.creators.push({ lastName: authorTab[j].a, creatorType: "contributor", fieldMode: 1 });
-				}
+		// Middleware used to precise itemType based on subfield 7XX$4 role
+		// Other itemType detection based on role goes here
+		fields.forEach((subfield) => {
+
+			/*
+			REVIEW ifaik WIPO Standard ST.25 is used for patent and there is associated zotero translators for that,
+			with dedicated endpoints WIPO, not unimarc.
+			But maybe unimarc can be (or is) used for patent searches. I asked an AI about who use UNIMARC, and it **seems**
+			administrations can (or allready) use it for archiving letters, reports, employee and citizen files, administatives acts.
+
+			Same, i searched a bit on Zotero translator which one inject the itemType "case" (court) and "statute" (law),
+			but i didnt found one inheriting from MARC.js, the translators for those administrative itemTypes usualy fetch a dedicated API / website,
+			some kind of opendata gov access.
+
+			Maybe thoses UNIMARC endpoints, if they exist, are not public, the protocol is used but the endpoint is private.
+			I'm not specialized in archivism, i mostly know for librarian and academic uses, i'll need to ask someone, and take a deepest search in
+			zotero translators to see if there is other uses of UNIMARC.
+			Then searching a bit online if administrations have a dedicated unimarc endpoint which can be used. AI tells me Europe admin
+			used it but i dont know if it hallucinates, and it wasnt clean between *could* or *is*
+
+			This isnt a priority, just if MARC.js has to be inherited for various uses, it should try to detect and manage all the itemtypes.
+			For patent it is quite clear because of the proprer patent relator role.
+
+			Notabene, while classing all relator subfields, i found "notary" which can be used for administrative contents.
+			should try a request to find all document with notary $4 field to take a look where it is used
+			*/
+
+			// patent detection
+			// if one of the authors is 582 Patent applicant 584 Patent inventor 587 Patentee itemtype is a patent
+			if ([
+				'582', // patent applicant
+				'584', // Patent inventor
+				'587' // patentee
+				].includes(subfield?.['4'])
+			) {
+				item.itemType = "patent"
 			}
-		}
+			// thesis detection
+			if ([
+				'305', // thesis candidate
+			].includes(subfield?.['4'])) {
+				item.itemType = "thesis"
+			}
+		})
+
+		fields.map((subfield) => {
+			const creatorType = getCreatorType(item,  subfield['4'])
+			const creator =  subfield.a && creatorType && (
+				subfield.b ?
+					// for 701
+					Zotero.Utilities.cleanAuthor(`${subfield.a.replace(/,\s*$/, '')}, ${subfield.b}`, creatorType, true) :
+					// used for both 71X organisation with single name and 70X author without firstname 
+					// fieldMode:1 is a flag for directly using lastname in post processing
+					{
+						lastName: subfield.a,
+						creatorType: creatorType,
+						fieldMode: 1
+					}
+			)
+			return creator
+		})
+		// remove creator with uncorresponding zotero creator type
+		.filter(Boolean)
+		// Insert all of found creator with corresponding zotero creator type
+		.forEach(creator => {
+			item.creators.push(creator);
+		})
 
 		// Extract language. In the 101$a there's a 3 chars code, would be better to
 		// have a translation somewhere
@@ -485,7 +1192,10 @@ record.prototype.translate = function (item) {
 		this._associateDBField(item, "676", "a", "callNumber");
 		this._associateDBField(item, "675", "a", "callNumber");
 		this._associateDBField(item, "680", "ab", "callNumber");
+
+		this._associateDBField(item, "856", "u", "url");
 	}
+	// other MARC flavor
 	else {
 		// If we've got a 502 field, we're on a thesis, either published on its own (thesis)
 		// or by a publisher and therefore with an ISBN number (book).
